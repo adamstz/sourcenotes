@@ -1,0 +1,131 @@
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+.sidebar {
+    background-color: #323657;
+}
+
+.top-row {
+    background-color: #1E2034;
+    justify-content: flex-end;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    
+}
+
+    .top-row ::deep a, .top-row .btn-link {
+        white-space: nowrap;
+        margin-left: 1.5rem;
+    }
+
+    .top-row a:first-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+@media (max-width: 640.98px) {
+    .top-row:not(.auth) {
+        display: none;
+    }
+
+    .top-row.auth {
+        justify-content: space-between;
+    }
+
+    .top-row a, .top-row .btn-link {
+        margin-left: 0;
+    }
+}
+
+@media (min-width: 641px) {
+    .page {
+        flex-direction: row;
+    }
+
+    .sidebar {
+        width: 250px;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+    }
+
+    .top-row {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .top-row, article {
+        padding-left: 2rem !important;
+        padding-right: 1.5rem !important;
+    }
+}
+
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #1E2034;
+}
+
+li {
+    float: left;
+}
+
+    li a, .dropbtn {
+        font-size: 0.9rem;
+        display: block;
+        border-radius: 4px;
+        display: flex;
+        color: #d7d7d7;
+        text-align: center;
+        padding: 14px 16px;
+    }
+
+        li a:hover, .dropdown:hover .dropbtn {
+            background-color: rgba(255,255,255,0.1);
+            color: white;
+        }
+
+    li.dropdown {
+        display: inline-block;
+    }
+
+.dropdown-content {
+    display: none;
+    position: fixed;
+    background-color: #1E2034;
+    margin: 0px 0px 0px 24px;
+}
+
+    .dropdown-content a {
+        color: #d7d7d7;
+        padding: 12px;
+        text-decoration: none;
+        display: block;
+        text-align: left;
+        margin: 0px 0px 0px 0px;
+    }
+
+        .dropdown-content a:hover {
+            background-color: rgba(255,255,255,0.1);
+            color: white;
+        }
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+.active {
+    background-color: rgba(255,255,255,0.25);
+    color: white;
+}

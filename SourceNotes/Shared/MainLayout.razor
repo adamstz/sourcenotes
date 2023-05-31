@@ -1,0 +1,82 @@
+﻿@inherits LayoutComponentBase
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>SourceNotes</PageTitle>
+
+<div class="page">
+
+    <AuthorizeView>
+        <Authorized>
+            <div class="sidebar">
+                <NavMenu />
+            </div>
+
+            <main>
+                <div class="top-row px-4 auth" style="z-index: 999;"> @* z-index so tabs are always in front (speicifically for TinyEditor*@
+                    <ul>
+                        @if (UserIsInRole("Admin"))
+                        {
+                            <li class="dropdown">
+                                <a href="/projectsettings" target="_self" class="dropbtn">Admin</a>
+                                <div class="dropdown-content">
+                                    <a href="/projectsettings" target="_self">Project Settings</a>
+                                    <a href="/useraccounts" target="_self">User Accounts</a>
+                                    <a href="/userlist" target="_self">Research Evals</a>
+                                    <a href="/keywordadmin" target="_self">Keywords</a>
+                                    <a href="/personadmin" target="_self">People</a>
+                                    <a href="/sourceadmin" target="_self">Sources</a>
+                                </div>
+                            </li>
+                        }
+                        <li><a href="/" target="_self">About</a></li>
+                        <li><a href="/publicprojects" target="_self">Public Projects</a></li>
+                        <LoginDisplay />
+                    </ul>
+                </div>
+
+                <article class="content px-4">
+                    @Body
+                </article>
+            </main>
+        </Authorized>
+        <NotAuthorized>
+            @* THIS WILL BE COMMENTED OUT FOR "NOT AUTHORIZED" ONCE LOGIN WORKS AGAIN *@
+            @*
+            <div class="sidebar">
+            <NavMenu />
+            </div>
+            *@
+
+            <main>
+                <div class="top-row px-4 auth">
+                    <ul>
+                        <li><a href="/" target="_self">About</a></li>
+                        <li><a href="/publicprojects" target="_self">Public Projects</a></li>
+                    </ul>
+                    <LoginDisplay />
+                </div>
+
+                <article class="content px-4">
+                    @Body
+                </article>
+            </main>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? authenticationStateTask { get; set; }
+
+    private bool UserIsInRole(string role)
+    {
+        if (authenticationStateTask != null)
+        {
+            var user = (authenticationStateTask).Result.User;
+            if (user.IsInRole(role))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+}

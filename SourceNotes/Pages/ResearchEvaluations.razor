@@ -1,0 +1,164 @@
+﻿@page "/researchevaluations"
+@using SourceNotes.Data
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Http
+@inject IHttpContextAccessor HttpContextAccessor
+@inject UserManager<IdentityUser> UserManager
+@inject NotesService _notesservice
+@inject UsersToProjectsService _userstoprojectsservice
+@inject CommentServices _commentservice
+
+<PageTitle>SourceNotes</PageTitle>
+
+<!--HEADERS-->
+<h3>Research Evaluations</h3>
+<br />
+
+<div style="display:flex">
+    @*<h1 class="text-center mt-4 mb-4">Note Reports</h1>*@
+    <div class="row">
+        @foreach (var note in notes)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">@note.NoteText</h5>
+                        <p class="card-text"><small style="color:gray">Project: @shorten(_notesservice.getProject(@note).ProjectName, 20)</small></p>
+                        <p class="card-text"><small style="color:gray">Source: @shorten(_notesservice.getSource(@note).SourceTextDetails, 20)</small></p>
+                        <p class="card-text"><small style="color:gray">Creator: @note.NoteUserAuthor</small></p>
+                        @*<p class="card-text">ID: @note.NoteId</p>*@
+                        <p class="card-text"><small style="color:gray">Date: @note.NoteDocDate.ToString("yyyy-MM-dd")</small></p>
+                        <p class="card-text">Comments:</p>
+
+                        <div>
+                            @foreach (var comment in _commentservice.getComments(@note.NoteId))
+                            {
+                                <div style="border: 1px solid #789ac7; padding: 10px; margin:10px;">
+                                    @if (comment != null)
+                                    {
+                                        <p class="card-text">@comment.CommentText</p>
+                                        <p class="card-text"><small style="color:gray">Author: @comment.CommentFromUser</small></p>
+                                        <p class="card-text"><small style="color:gray">Date: @comment.CommentDateTime.ToString("yyyy-MM-dd")</small></p>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <button class="blue-button" @onclick="() => OpenModal(note)">
+                            <i class="fas fa-pencil-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+@if (isModalVisible)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog my-custom-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Comments</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div>
+                            @foreach (var comment in _commentservice.getComments(editingNote.NoteId))
+                            {
+                                <div class="form-group mt-3">
+                                    <label>Edit Comment:</label>
+                                    <textarea class="form-control" rows="2" @bind="commentDict[comment.CommentId]">@comment.CommentText</textarea>
+                                </div>
+                            }
+                        </div>
+                        <div class="form-group mt-3">
+                            <label>Add New Comment:</label>
+                            <textarea class="form-control" id="newCommentText" rows="4" @bind="newCommentText"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Close</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveNote">Save changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+@code {
+    [CascadingParameter]
+    public string selectedUserEmail { get; set; }
+
+    List<int> projectIDs;
+    List<Note> notes;
+    private bool isModalVisible = false;
+    private Note editingNote;
+    private string newCommentText;
+    Dictionary<int, string> commentDict = new Dictionary<int, string>();
+    private async Task<IdentityUser> GetCurrentUserAsync()
+    {
+        return await UserManager.GetUserAsync(HttpContextAccessor.HttpContext.User);
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        projectIDs = _userstoprojectsservice.GetProjectIds(selectedUserEmail);
+        notes = _notesservice.GetNotesByProjectIdsAsync(projectIDs, selectedUserEmail);
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        projectIDs = _userstoprojectsservice.GetProjectIds(selectedUserEmail);
+        notes = _notesservice.GetNotesByProjectIdsAsync(projectIDs, selectedUserEmail);
+        StateHasChanged();
+    }
+    private void OpenModal(Note note)
+    {
+        editingNote = new Note
+            {
+                NoteId = note.NoteId,
+                NoteText = note.NoteText
+            };
+
+        commentDict.Clear();
+        foreach (var comment in _commentservice.getComments(editingNote.NoteId))
+        {
+            if (comment != null)
+            {
+                commentDict[comment.CommentId] = comment.CommentText;
+            }
+        }
+        isModalVisible = true;
+    }
+    private void CloseModal()
+    {
+        isModalVisible = false;
+    }
+
+    private async Task SaveNote()
+    {
+        foreach (var entry in commentDict)
+        {
+            int commentID = entry.Key;
+            string updatedText = entry.Value;
+            _commentservice.editComment(commentID, updatedText);
+        }
+
+        var loggedInUser = await GetCurrentUserAsync();
+        if (loggedInUser != null)
+        {
+            string userEmail = loggedInUser.Email;
+            if (!string.IsNullOrWhiteSpace(newCommentText))
+            {
+                _commentservice.addComment(editingNote.NoteId, newCommentText, userEmail);
+            }
+        }
+
+        // After saving the changes, close the modal and refresh the notes list
+        isModalVisible = false;
+        await OnParametersSetAsync();
+    }
+    string shorten(string s, int length) {
+        return s.Length >= length ? s.Substring(0, length) + "..." : s;
+    }
+}

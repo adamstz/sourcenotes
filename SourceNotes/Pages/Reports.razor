@@ -1,0 +1,84 @@
+﻿@page "/reports"
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+@inject ProtectedSessionStorage ProtectedSessionStore;
+@using SourceNotes.Data
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Http
+@inject IHttpContextAccessor HttpContextAccessor
+@inject UserManager<IdentityUser> UserManager
+@inject NotesService _notesservice
+@inject UsersToProjectsService _userstoprojectsservice
+@inject CommentServices _commentservice
+
+<PageTitle>SourceNotes</PageTitle>
+
+<!--HEADERS-->
+<h3>Note Reports</h3>
+<br />
+
+<div class="container">
+    @if (notes != null)
+    {
+        <div class="row">
+            @foreach (var note in notes)
+            {
+                <div class="col-md-12 mb-4 note-container">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">@note.NoteText</h5>
+                            @*<p class="card-text">Project ID: @note.NoteProjectId</p>
+                            <p class="card-text">Source ID: @note.NoteSourceId</p>*@
+                            <p class="card-text"><small style="color:gray">Creator: @note.NoteUserAuthor</small></p>
+                            @*<p class="card-text">ID: @note.NoteId</p>*@
+                            <p class="card-text"><small style="color:gray">Date: @note.NoteDocDate.ToString("yyyy-MM-dd")</small></p>
+                            <p class="card-text">Comments:</p>
+
+                            <div>
+                                @foreach (var comment in _commentservice.getComments(@note.NoteId))
+                                {
+                                    <div class="comment-box">
+                                        @if (comment != null)
+                                        {
+                                            <p class="card-text">@comment.CommentText</p>
+                                            <p class="card-text"><small style="color:gray">Author: @comment.CommentFromUser</small></p>
+                                            <p class="card-text"><small style="color:gray">Date: @comment.CommentDateTime</small></p>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+
+@code {
+    List<Note> notes;
+    [CascadingParameter] Task<AuthenticationState> authenticationStateTask { get; set; }
+    System.Security.Claims.ClaimsPrincipal user;
+
+    private async Task<IdentityUser> GetCurrentUserAsync()
+    {
+        return await UserManager.GetUserAsync(HttpContextAccessor.HttpContext.User);
+
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        //var loggedInUser = await GetCurrentUserAsync();
+        var authState = await authenticationStateTask;
+        user = authState.User;
+        notes = new List<Note>(); 
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (firstRender) {
+            var result = await ProtectedSessionStore.GetAsync<int>(user.Identity.Name);
+            int selectedProjectId = result.Success ? result.Value : 0;
+            notes = _notesservice.GetNotesByEmail(user.Identity.Name, selectedProjectId);
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,240 @@
+﻿@page "/labbook"
+@using SourceNotes.Data
+@inject AppState appState
+@inherits OwningComponentBase<LabBookServices>
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IHttpContextAccessor httpContextAccessor
+@inject NavigationManager uriHelper;
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+@inject ProtectedSessionStorage ProtectedSessionStore;
+
+<PageTitle>SourceNotes</PageTitle>
+
+<head>
+    <style>
+        .trends-table th, .trends-table td {
+            width: auto;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<h3>Lab Book Entries</h3>
+<br />
+
+<div style="display:flex">
+
+    <span>
+        <button class="green-button" @onclick="ShowPopup">New Entry +</button>
+    </span>
+
+</div>
+
+<div>
+    <table class="trends-table">
+        <thead>
+            <tr>
+                <th>Date Created</th>
+                <th>Entry</th>
+                <th></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var eEntry in entries)
+            {
+                <tr>
+                    <td>@eEntry.LbEntryDateTime.ToShortDateString()</td>
+                    <td>
+                        @eEntry.LbEntryText
+                        <small style="color:gray">
+                            <br>Creator: @eEntry.LbEntryUser
+                        </small>
+                    </td>
+                    <td>
+                        <i class="fas fa-pen" style="color:orange; font-size:12px" @onclick="eventArgs=> { ShowPopup(eEntry); }"></i> @*TODO change onclick*@
+                    </td>
+                    <td>
+                        <i class="fa fa-times" style="color:red; font-size:12px" @onclick="eventArgs=> { ShowDeletePopup(eEntry); }"></i> @*TODO change onclick*@
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+
+@*Popup modal for adding a new entry*@
+@if (popup)
+{
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@getModalTitle()</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="ClosePopup"></button>
+                </div>
+                <EditForm Model="l" OnValidSubmit="SaveEntry">
+                    <div class="modal-body">
+                        <div>
+                            <br>
+                            <textarea rows="8" cols="54" @bind="l.LbEntryText" required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="blue-button">Submit</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@*Popup modal for deleting an entry*@
+@if (deletePopup)
+{
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete this entry?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseDeletePopup"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@l.LbEntryText</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="blue-button" @onclick="DeleteEntry">Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    string selectedContent;
+    int selectedProjectId;
+
+    List<LbEntry> entries { get; set; } = new List<LbEntry>();
+    List<LbEntry> lbEntryUser { get; set; } = new List<LbEntry>();
+    List<LbEntry> lbEntryDateTime { get; set; } = new List<LbEntry>();
+    List<LbEntry> lbEntryText { get; set; } = new List<LbEntry>();
+
+    System.Security.Claims.ClaimsPrincipal user;
+    List<AspNetUsers> users;
+    List<Note> notes;
+    List<Note> displayedNotes;
+    List<Project> projects;
+    [CascadingParameter] Task<AuthenticationState> authenticationStateTask { get; set; }
+    string sourceText;
+    bool edit = false;
+    bool popup = false;
+    bool deletePopup = false;
+    Note n;
+    LbEntry l;
+    void ShowPopup(LbEntry lbEntry)
+    {
+        //n = note;
+        l = lbEntry;
+        sourceText = l.LbEntryText;
+        edit = true;
+        popup = true;
+    }
+
+    void ShowPopup()
+    {
+        l = new LbEntry();
+        sourceText = "";
+        edit = false;
+        popup = true;
+    }
+
+    void ClosePopup()
+    {
+        popup = false;
+    }
+
+    void ShowDeletePopup(LbEntry lbEntry)
+    {
+        //n = note;
+        l = lbEntry;
+        deletePopup = true;
+    }
+
+    void CloseDeletePopup()
+    {
+        deletePopup = false;
+    }
+
+    string getModalTitle()
+    {
+        if (edit == true)
+        {
+            return "Edit Lab Book Entry";
+        }
+        else
+        {
+            return "New Lab Book Entry";
+        }
+    }
+
+    void SaveEntry()
+    {
+        l.LabBookProjectId = selectedProjectId;
+        l.LbEntryUser = user.Identity.Name;
+        Service.addLbEntry(l);
+        ClosePopup();
+        uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+    }
+
+    void DeleteEntry()
+    {
+        Service.DeleteEntry(l);
+        CloseDeletePopup();
+        uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        
+        lbEntryUser = Service.getLbEntryUser();
+        lbEntryDateTime = Service.getLbEntryDateTime();
+        lbEntryText = Service.getLbEntryText();
+        //SsmaTimeStamp = Service.getSsmaTimeStamp();
+
+        users = Service.getUsers();
+        if (entries == null)
+        {
+            entries = new List<LbEntry>();
+        }
+        projects = Service.getProjects();
+        var authState = await authenticationStateTask;
+        user = authState.User;
+        if (!user.Identity.IsAuthenticated)
+        {
+            uriHelper.NavigateTo("/Identity/Account/Login", true);
+        }
+
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var result = await ProtectedSessionStore.GetAsync<int>(user.Identity.Name);
+            selectedProjectId = result.Success ? result.Value : 0;
+
+            entries = Service.getLbEntry(selectedProjectId);
+
+            StateHasChanged();
+        }
+    }
+    string shorten(string s, int length)
+    {
+        return s.Length >= length ? s.Substring(0, length) + "..." : s;
+    }
+
+}

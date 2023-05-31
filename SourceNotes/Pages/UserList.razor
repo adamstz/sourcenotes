@@ -1,0 +1,66 @@
+﻿@page "/userlist"
+@using SourceNotes.Data
+@inject ProjectServices _projectservices
+
+<PageTitle>SourceNotes</PageTitle>
+
+<h3>User List</h3>
+
+@if (users == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    
+
+<table class="trends-table">
+        <thead>
+            <tr>
+                @*<th>ID</th>*@
+                <th width="90%">Username</th>
+                <th width="10%">@*Action*@</th>
+               
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in @users)
+            {  
+        <tr>
+        @*<td>@user.Id</td>*@
+        
+        <td>@user.UserName</td>
+        <td style="text-align:right;">
+            <button @onclick="() => selectedUserEmail = user.Email" class="blue-button">View Notes</button>
+        </td>
+    </tr>
+        }
+        </tbody>
+    </table>
+    @if (!string.IsNullOrEmpty(selectedUserEmail))
+{
+    <CascadingValue Value="@selectedUserEmail">
+        <ResearchEvaluations/>
+    </CascadingValue>
+}
+}
+    
+
+@code {
+    [CascadingParameter]
+    private string UserEmail { get; set; } = null;
+
+
+    private List<AspNetUsers> users;
+    private string selectedUserEmail = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        users = _projectservices.getUsers();
+
+        StateHasChanged();
+
+    }
+   
+        
+}

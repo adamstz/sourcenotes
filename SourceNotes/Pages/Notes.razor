@@ -1,0 +1,328 @@
+﻿@page "/notes"
+@using SourceNotes.Data
+@inject AppState appState
+@inherits OwningComponentBase<ProjectServices>
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IHttpContextAccessor httpContextAccessor
+@inject NavigationManager uriHelper;
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+@inject ProtectedSessionStorage ProtectedSessionStore;
+
+<PageTitle>SourceNotes</PageTitle>
+
+<head>
+    <style>
+        .trends-table th, .trends-table td {
+            width: auto;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<h3>Notes</h3>
+<br />
+
+<div style="display:flex">
+
+    <span>
+        <button class="green-button" @onclick="ShowPopup">New Note +</button>
+    </span>
+
+    @* Export to HTML button is currently hidden because it hasn't been implemented yet.*@
+@*    <span style="margin-left:auto">
+        <button class="btn btn-primary">Export to HTML</button>
+    </span>*@
+
+    <span style="margin-left: auto">
+        @*Content*@
+        <InputText id="contentFilter" style="width:100" @bind-Value="selectedContent" />
+        <button class="blue-button" @onclick="doSearch">Search</button>
+    </span>
+@*    <span style="flex:auto">
+        Keywords
+        <select @bind="selectedKeyword">
+            <option value=""> </option>
+            @foreach (var keyword in @keywords) {
+                <option value="@keyword.KeywordName"> @keyword.KeywordName</option>
+            }
+        </select>
+    </span>
+
+    <span style="flex:auto">
+        People
+        <select @bind="selectedPerson">
+            <option value=""> </option>
+            @foreach (var person in @people) {
+                <option value="@person.PeopleName"> @person.PeopleName </option>
+            }
+        </select>
+    </span>*@
+
+@*    <span style="flex:auto">
+        Users
+        <select>
+        <option value=""> </option>
+            @foreach (var user in @users) {
+                <option value="@user.UserUsername"> @user.UserUsername</option>
+            }
+        </select>
+    </span>*@
+</div>
+
+<div>
+    <table class="trends-table" style="width:100%;">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Source</th>
+                <th>Note</th>
+                <th>Keywords</th>
+                <th>People</th>
+                <th></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var note in @displayedNotes) {
+                <tr>
+                    <td>@note.NoteDocDate.ToShortDateString()</td>
+                    <td>@shorten(Service.getSource(@note).SourceTextDetails, 20)</td>
+                    <td>@note.NoteText
+                        <small style="color:gray">
+                            <br>Creator: @note.NoteUserAuthor
+                            @*<br>Note ID: @note.NoteId*@
+                            @*<br>Project ID: @note.NoteProjectId*@
+                        </small>
+                    </td>
+                    <td>
+                        @foreach (var keyword in Service.getKeywords(note)) {
+                            <span>@keyword.KeywordName</span>
+                            <br />
+                        }
+                    </td>
+                    <td>
+                        @foreach (var person in Service.getPeople(note)) {
+                            <span>@person.PeopleName</span>
+                            <br />
+                        }
+                    </td>
+                    <td>
+                        <i class="fas fa-pen" style="color:orange; font-size:12px" @onclick="eventArgs=> { ShowPopup(note); }"></i> @*TODO change onclick*@
+                    </td>
+                    <td>
+                        <i class="fa fa-times" style="color:red; font-size:12px" @onclick="eventArgs=> { ShowDeletePopup(note); }"></i> @*TODO change onclick*@
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@*Popup modal for adding a new note*@
+@if (popup) {
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@getModalTitle()</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="ClosePopup"></button>
+                </div>
+                <EditForm Model="n" OnValidSubmit="SaveNote">
+                    <div class="modal-body">
+                        <table>
+                            <tr>
+                                <td style="vertical-align:top; padding-right:20px">
+                                    <div>
+                                        Source
+                                        <br>
+                                        <textarea rows="4" cols="25" @bind="sourceText" required></textarea>
+                                    </div>
+                                    <br>
+                                    <div>
+                                        Note
+                                        <br>
+                                        <textarea rows="6" cols="25" @bind="n.NoteText" required></textarea>
+                                    </div>
+                                </td>
+                                <td style="vertical-align:top">
+                                    <div>
+                                        Date of Document
+                                        <br>
+                                        <input type="date" @bind=n.NoteDocDate />
+                                    </div>
+                                    <br>
+                                    <div>
+                                        Keyword
+                                        <br>
+
+                                        <select @bind=selectedKeyword>
+                                            @foreach (var keyword in keywords) {
+                                                @if (keyword.KeywordName == selectedKeyword) {
+                                                    <option value="@keyword.KeywordId" selected> @keyword.KeywordName </option>
+                                                }
+                                                <option value="@keyword.KeywordId"> @keyword.KeywordName </option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <br>
+                                    <div>
+                                        Person
+                                        <br>
+                                        <select @bind=selectedPerson>
+                                            @foreach (var person in people) {
+                                                @if (person.PeopleName == selectedPerson) {
+                                                    <option value="@person.PeopleId" selected> @person.PeopleName </option>
+                                                }
+                                                <option value="@person.PeopleId"> @person.PeopleName </option>
+                                            }
+                                        </select>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="blue-button">Submit</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@*Popup modal for deleting a note*@
+@if (deletePopup) {
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete this note?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseDeletePopup"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Source:</strong> @shorten(Service.getSource(@n).SourceTextDetails, 20)</p>
+                    <p><strong>Note:</strong> @n.NoteText</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="blue-button" @onclick="DeleteNote">Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    List<AspNetUsers> users;
+    List<Keyword> keywords;
+    List<People> people;
+    List<Note> notes;
+    List<Note> displayedNotes;
+    List<Project> projects;
+    [CascadingParameter] Task<AuthenticationState> authenticationStateTask { get; set; }
+    System.Security.Claims.ClaimsPrincipal user;
+    string selectedContent;
+    string selectedKeyword;
+    string selectedPerson;
+    string sourceText;
+    bool edit = false;
+    bool popup = false;
+    bool deletePopup = false;
+    int selectedProjectId;
+    Note n;
+
+    void ShowPopup(Note note) {
+        n = note;
+        sourceText = n.NoteSource.SourceTextDetails;
+        List<People> p = Service.getPeople(n);
+        selectedPerson = p.Count > 0 ? p.First().PeopleId.ToString() : "";
+        List<Keyword> k = Service.getKeywords(n);
+        selectedKeyword = k.Count > 0 ? k.First().KeywordId.ToString() : "";
+        edit = true;
+        popup = true;
+    }
+
+    void ShowPopup() {
+        n = new Note();
+        sourceText = "";
+        selectedPerson = "";
+        selectedKeyword = "";
+        edit = false;
+        popup = true;
+    }
+
+    void ClosePopup() {
+        popup = false;
+    }
+
+    void ShowDeletePopup(Note note) {
+        n = note;
+        deletePopup = true;
+    }
+
+    void CloseDeletePopup() {
+        deletePopup = false;
+    }
+
+    string getModalTitle() {
+        if(edit == true) {
+            return "Edit Note";
+        } else {
+            return "New Note";
+        }
+    }
+
+    void SaveNote() {
+        n.NoteProjectId = selectedProjectId;
+        n.NoteUserAuthor = user.Identity.Name;
+        if (sourceText != null) {
+            n.NoteSourceId = Service.addSource(sourceText, n);
+        }
+        Service.addNote(n);
+        Service.addNotesToKeyword(n, selectedKeyword);
+        Service.addNotesToPerson(n, selectedPerson);
+        ClosePopup();
+        doSearch();
+    }
+
+    void DeleteNote() {
+        Service.deleteNote(n);
+        CloseDeletePopup();
+        doSearch();
+    }
+
+    protected override async Task OnInitializedAsync() {
+        users = Service.getUsers();
+        keywords = Service.getKeywords();
+        people = Service.getPeople();
+        if (displayedNotes == null) {
+            displayedNotes = new List<Note>();
+        }
+        projects = Service.getProjects();
+        var authState = await authenticationStateTask;
+        user = authState.User;
+        if(!user.Identity.IsAuthenticated)
+        {
+            uriHelper.NavigateTo("/Identity/Account/Login", true);
+        }
+
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (firstRender) {
+            var result = await ProtectedSessionStore.GetAsync<int>(user.Identity.Name);
+            selectedProjectId = result.Success ? result.Value : 0;
+
+            doSearch();
+            StateHasChanged();
+        }
+    }
+    string shorten(string s, int length) {
+        return s.Length >= length ? s.Substring(0, length)+"..." : s;
+    }
+
+    void doSearch() {
+        displayedNotes = Service.getNotes(selectedProjectId, selectedContent, selectedPerson, selectedKeyword);
+        
+    }
+}

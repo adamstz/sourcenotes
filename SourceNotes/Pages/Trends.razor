@@ -1,0 +1,113 @@
+﻿@page "/trends"
+﻿@using SourceNotes.Data
+@inject AppState appState
+@inherits OwningComponentBase<GlobalServices>
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+@inject ProtectedSessionStorage ProtectedSessionStore;
+
+<PageTitle>SourceNotes</PageTitle>
+
+<h3>Trends</h3>
+
+<div style="display:flex">
+    <table class="trends-table">
+        <thead>
+            <tr>
+                <th>Keyword</th>
+                <th>Frequency</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (keywordFrequencies == null)
+            {
+                <tr>
+                    <td>...</td>
+                    <td>...</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var keywordFrequency in keywordFrequencies)
+                {
+                    <tr>
+                        <td>@keywordFrequency.Keyword</td>
+                        <td>@keywordFrequency.Frequency</td>
+                    </tr>
+                }
+            }
+        </tbody>
+
+    </table>
+</div>
+
+<div style="display:flex">
+    <table class="trends-table">
+        <thead>
+            <tr>
+                <th>Person</th>
+                <th>Frequency</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @if (peopleFrequencies == null)
+            {
+                <tr>
+                    <td>...</td>
+                    <td>...</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var personFrequency in peopleFrequencies)
+                {
+                    <tr>
+                        <td>@personFrequency.Person</td>
+                        <td>@personFrequency.Frequency</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+
+
+@code {
+    List<dynamic> keywordFrequencies;
+    List<dynamic> peopleFrequencies;
+    int selectedProjectId;
+    [CascadingParameter] Task<AuthenticationState> authenticationStateTask { get; set; }
+    System.Security.Claims.ClaimsPrincipal user;
+
+    protected override async Task OnInitializedAsync()
+    {
+        keywordFrequencies = Service.GetKeywordFrequencyByProjectId(selectedProjectId);
+        peopleFrequencies = Service.GetPersonFrequencyByProjectId(selectedProjectId);
+        var authState = await authenticationStateTask;
+        user = authState.User;
+
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var result = await ProtectedSessionStore.GetAsync<int>(user.Identity.Name);
+            selectedProjectId = result.Success ? result.Value : 0;
+            keywordFrequencies = Service.GetKeywordFrequencyByProjectId(selectedProjectId);
+            peopleFrequencies = Service.GetPersonFrequencyByProjectId(selectedProjectId);
+            StateHasChanged();
+               
+            /*if(frequencies.Count()==0) {
+                Console.WriteLine("empty");
+            }else{
+                Console.WriteLine("works");
+            }
+            foreach (var keywordFrequency in frequencies)
+            {
+                Console.WriteLine("Keyword: {0}, Frequency: {1}", keywordFrequency.Keyword, keywordFrequency.Frequency);
+            }*/
+        }
+    }
+}

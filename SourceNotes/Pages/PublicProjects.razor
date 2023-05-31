@@ -1,0 +1,63 @@
+﻿@page "/publicprojects"
+@using SourceNotes.Data
+@inject AppState appState
+@inherits OwningComponentBase<ProjectServices>
+
+<PageTitle>SourceNotes</PageTitle>
+
+<head>
+    <style>
+        .trends-table th, .trends-table td {
+            width: auto;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<h3>Public Projects</h3>
+
+<div style="display:flex">
+    <table class="trends-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                @*<th>Keywords</th>*@
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var project in @projects.Where(p => p.ProjectPublic == 1))
+            {
+                <tr>
+                    <td>@project.ProjectName</td>
+                    @*                <td>
+
+                @foreach (var note in @project.Note)
+                {
+                @foreach (var keyword in @Service.getKeywords(note))
+                {
+                @keyword.KeywordName.ToString()
+                ;
+                }
+                }
+
+                </td>*@
+                    <td>@project.ProjectDescription</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+
+@code {
+    List<Project> projects;
+    List<Note> notes;
+    protected override async Task OnInitializedAsync()
+    {
+        projects = Service.getProjects();
+        notes = Service.getNotes();
+    }
+
+}
+

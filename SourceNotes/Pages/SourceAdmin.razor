@@ -1,0 +1,203 @@
+﻿@page "/sourceadmin"
+@using SourceNotes.Data
+@inject AppState appState
+@inherits OwningComponentBase<ProjectServices>
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject NavigationManager uriHelper;
+
+<PageTitle>SourceNotes</PageTitle>
+
+<!--HEADERS-->
+<h3>Manage Sources</h3>
+<br />
+
+<div style="height:500px; overflow-y:scroll">
+    @foreach (var source in sources) {
+        <div style="float:left; width:33.3%;">
+            <input type="checkbox" name="sourceCheckbox" id=@source.SourceTextDetails @onchange ="eventArgs=> { CheckboxClicked(source.SourceTextDetails, eventArgs.Value); }">
+            <label for=@source.SourceTextDetails> @shorten(@source.SourceTextDetails, 30) </label>
+            <i id=@source.SourceTextDetails class="fas fa-pen" style="color:orange; font-size:12px" @onclick="eventArgs=> { showRenamePopup(source); }"></i>
+        </div>
+    }
+</div>
+<br />
+<button class="blue-button" @onclick="showMergePopup">Merge</button>
+@*Delete button is temporarily removed because only sources without any notes linked to them can be deleted. I'm not sure how to handle this error and inform the user.*@
+@*<button class="red-button" @onclick="showDeletePopup">Delete</button>*@
+
+@if (deletePopup) {
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete these sources?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="closeDeletePopup"></button>
+                </div>
+                <div class="modal-body">
+                    @foreach (var checkbox in checkboxes) {
+                        @checkbox
+                        <br />
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="blue-button" @onclick="deleteSources">Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (mergePopup) {
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Select which source the others will merge into.</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="closeMergePopup"></button>
+                </div>
+                <div class="modal-body">
+                    @foreach (var checkbox in checkboxes) {
+                        <input type="radio" name="radio" id=@checkbox @onchange="() => changeMergeInto(checkbox)">
+                        <label>@checkbox</label>
+                        <br />
+                    }
+                    <div style="color:red">
+                        @message
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="blue-button" @onclick="mergeSources">Merge</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (renamePopup) {
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Rename Source: @renamedSource.SourceTextDetails</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="closeRenamePopup"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id=@renamedSource.SourceTextDetails @bind="newSourceName">
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="blue-button" @onclick="renameSource">Rename</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    List<Sources> sources;
+    List<Sources> selectedSources = new List<Sources>();
+    private HubConnection? hubConnection;
+    bool deletePopup = false;
+    bool mergePopup = false;
+    bool renamePopup = false;
+    Sources renamedSource;
+    string newSourceName;
+    string mergeInto;
+    string message;
+
+    public List<string> checkboxes { get; set; } = new List<string>();
+    public List<Sources> deletableSources { get; set; } = new List<Sources>();
+
+    void CheckboxClicked(string CheckID, object checkedValue) {
+        if ((bool)checkedValue) {
+            if (!checkboxes.Contains(CheckID)) {
+                checkboxes.Add(CheckID);
+            }
+        } else {
+            if (checkboxes.Contains(CheckID)) {
+                checkboxes.Remove(CheckID);
+            }
+        }
+    }
+
+    void addOrRemoveCheckbox(Sources source) {
+        deletePopup = true;
+        selectedSources.Add(source);
+    }
+
+    void changeMergeInto(string str) {
+        mergeInto = str;
+    }
+
+    void mergeSources() {
+        Sources mergeSource = sources.Where(s => s.SourceTextDetails == mergeInto).First();
+        List<Sources> otherSources = new List<Sources>();
+        foreach (var sourceName in checkboxes) {
+            Sources s = sources.Where(s => s.SourceTextDetails == sourceName.ToString()).First();
+            if (s != mergeSource) {
+                otherSources.Add(s);
+            }
+        }
+        bool success = Service.mergeSources(mergeSource, otherSources);
+        if (success) {
+            closeMergePopup();
+            uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+        } else {
+            message = "Sorry, merge unsuccessful. Try merging into a different source, then renaming the result.";
+        }
+    }
+
+    void deleteSources() {
+        foreach (var sourceName in checkboxes) {
+            Sources s = sources.Where(s => s.SourceTextDetails == sourceName.ToString()).First();
+            Service.deleteSource(s);
+            closeDeletePopup();
+            uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+        }
+    }
+
+    void renameSource() {
+        Service.renameSource(renamedSource, newSourceName);
+        closeRenamePopup();
+        uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+    }
+
+    void showDeletePopup() {
+        deletePopup = true;
+    }
+
+    void closeDeletePopup() {
+        deletePopup = false;
+    }
+
+    void showMergePopup() {
+        mergePopup = true;
+    }
+
+    void closeMergePopup() {
+        mergePopup = false;
+    }
+
+    void showRenamePopup(Sources s) {
+        renamedSource = s;
+        newSourceName = s.SourceTextDetails;
+        renamePopup = true;
+    }
+
+    void closeRenamePopup() {
+        renamedSource = null;
+        renamePopup = false;
+    }
+
+    string shorten(string s, int length) {
+        return s.Length > length ? s.Substring(0, length)+"..." : s;
+    }
+
+    protected override async Task OnInitializedAsync() {
+        sources = Service.getSources();
+        //hubConnection = new HubConnectionBuilder()
+        //   .WithUrl(Navigation.ToAbsoluteUri("/chathub"))
+        //   .Build();
+        //await hubConnection.StartAsync();
+    }
+}

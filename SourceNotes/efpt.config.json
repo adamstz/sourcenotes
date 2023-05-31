@@ -1,0 +1,89 @@
+﻿{
+   "CodeGenerationMode": 2,
+   "ContextClassName": "SourceNotesContext",
+   "ContextNamespace": null,
+   "DefaultDacpacSchema": null,
+   "FilterSchemas": false,
+   "IncludeConnectionString": false,
+   "ModelNamespace": null,
+   "OutputContextPath": null,
+   "OutputPath": "Data",
+   "PreserveCasingWithRegex": true,
+   "ProjectRootNamespace": "SourceNotes",
+   "Schemas": null,
+   "SelectedHandlebarsLanguage": 0,
+   "SelectedToBeGenerated": 0,
+   "Tables": [
+      {
+         "Name": "[dbo].[AspNetUsers]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[Comment]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[Keyword]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[LabBook]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[LB_Entry]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[Methodology]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[Note]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[NotesToKeyword]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[NotesToPerson]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[People]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[Project]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[Sources]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[UsersToProjects]",
+         "ObjectType": 0
+      }
+   ],
+   "UiHint": "(localdb)\\MSSQLLocalDB.SourceNotes",
+   "UncountableWords": null,
+   "UseBoolPropertiesWithoutDefaultSql": false,
+   "UseDatabaseNames": false,
+   "UseDateOnlyTimeOnly": false,
+   "UseDbContextSplitting": false,
+   "UseFluentApiOnly": true,
+   "UseHandleBars": false,
+   "UseHierarchyId": false,
+   "UseInflector": false,
+   "UseLegacyPluralizer": false,
+   "UseManyToManyEntity": false,
+   "UseNoDefaultConstructor": false,
+   "UseNoObjectFilter": false,
+   "UseNodaTime": false,
+   "UseNullableReferences": false,
+   "UseSchemaFolders": false,
+   "UseSpatial": false,
+   "UseT4": false
+}

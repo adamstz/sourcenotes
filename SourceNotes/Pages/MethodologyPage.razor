@@ -1,0 +1,112 @@
+﻿@page "/Methodology"
+@using TinyMCE.Blazor
+@using SourceNotes.Data
+@using System.Net.Http
+@using System.Text.Json
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject AppState appState
+@inherits OwningComponentBase<MethodologyService>
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+@inject ProtectedSessionStorage ProtectedSessionStore;
+
+<PageTitle>SourceNotes</PageTitle>
+
+<AuthorizeView>
+	<NotAuthorized>
+	    <h1>You are not logged in.</h1>
+    </NotAuthorized>
+<Authorized>
+	<h3>Methodology</h3>
+    <br />
+        
+<div>
+    <Editor Id="tinyEditor"
+            Inline=false
+            CloudChannel="5-dev"
+            @bind-Value=methodologyText
+            Disable=false
+            JsConfSrc="path_to_jsObj"
+            Conf="@editorConf"
+            ApiKey="wuar7x5bb2b5n6xrhgzjvqxqkeorx9is6kf2s6eofjgshil9"
+            ClassName="tinymce-wrapper editor"
+            height="800px"
+    />
+</div>
+<br />
+<button style= "display:block; margin: auto;" class="blue-button" @onclick="updateMethodology">Update the Methodology</button>
+<br />
+</Authorized>
+</AuthorizeView>
+
+
+
+@code {
+
+
+    //private HubConnection? hubConnection;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? authenticationStateTask { get; set; }
+    System.Security.Claims.ClaimsPrincipal user;
+    List<Methodology> methodologies;
+    private string UserIdentityName = "";
+    private string methodologyText = "";
+    private string roleText = "";
+    int selectedProjectId;
+    protected override async Task OnInitializedAsync()
+    {
+       
+        //methodologies = Service.getMethodology(selectedProjectId);
+        //methodologyText = methodologies.Count > 0 ? (methodologies[0]?.MethodologyText ?? "") : "";
+        /*
+        hubConnection = new HubConnectionBuilder().WithUrl(Navigation.ToAbsoluteUri("/chathub")).Build();
+
+        hubConnection.On<List<Methodology>>("ReceiveMethodology", (methodologies) =>
+        {
+            methodologyText = methodologies[0].MethodologyText;
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+        if (hubConnection is not null)
+        {
+            await hubConnection.SendAsync("getMethodology");
+        }
+        */
+        var authState = await authenticationStateTask;
+        user = authState.User;
+       
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var result = await ProtectedSessionStore.GetAsync<int>(user.Identity.Name);
+            selectedProjectId = result.Success ? result.Value : 0;
+            methodologies = Service.getMethodology(selectedProjectId);
+            methodologyText = methodologies.Count > 0 ? (methodologies[0]?.MethodologyText ?? "") : "";
+            StateHasChanged();
+        }
+    }
+    private async Task updateMethodology()
+    {
+        
+        Service.setMethodology(methodologyText, selectedProjectId);
+       
+        /*
+        if (hubConnection is not null)
+        {
+            await hubConnection.SendAsync("updateMethodology",methodologyText);
+        }
+        */
+    }
+    /*For tiny editor*/
+	private Dictionary<string, object> editorConf = new Dictionary<string, object>{
+   { "menubar", true },
+   { "plugins", "link image code" },
+   { "toolbar", "undo redo | styleselect | forecolor | bold italic | alignleft aligncenter alignright alignjustify | outdent indent | link image | code" }
+ };
+   
+}

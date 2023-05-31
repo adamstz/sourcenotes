@@ -1,0 +1,196 @@
+﻿@page "/keywordadmin"
+@using SourceNotes.Data
+@inject AppState appState
+@inherits OwningComponentBase<ProjectServices>
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject NavigationManager uriHelper;
+
+<PageTitle>SourceNotes</PageTitle>
+
+<!--HEADERS-->
+<h3>Manage Keywords</h3>
+<br />
+
+<div style="height:500px; overflow-y:scroll">
+    @foreach (var keyword in keywords) {
+        <div style="float:left; width:33.3%">
+            <input type="checkbox" name="keywordCheckbox" id=@keyword.KeywordName @onchange="eventArgs=> { CheckboxClicked(keyword.KeywordName, eventArgs.Value); }">
+            <label for=@keyword.KeywordName> @keyword.KeywordName </label>
+            <i id=@keyword.KeywordName class="fas fa-pen" style="color:orange; font-size:12px" @onclick="eventArgs=> { showRenamePopup(keyword); }"></i>
+        </div>
+    }
+</div>
+<br />
+<button class="blue-button" @onclick="showMergePopup">Merge</button>
+<button class="red-button" @onclick="showDeletePopup">Delete</button>
+
+@if (deletePopup) {
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete these keywords?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="closeDeletePopup"></button>
+                </div>
+                <div class="modal-body">
+                    @foreach (var checkbox in checkboxes) {
+                        @checkbox
+                        <br />
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="blue-button" @onclick="deleteKeywords">Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (mergePopup) {
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Select which keyword the others will merge into.</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="closeMergePopup"></button>
+                </div>
+                <div class="modal-body">
+                    @foreach (var checkbox in checkboxes) {
+                        <input type="radio" name="radio" id=@checkbox @onchange="() => changeMergeInto(checkbox)">
+                        <label>@checkbox</label>
+                        <br />
+                    }
+                    <div style="color:red">
+                        @message
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="blue-button" @onclick="mergeKeywords">Merge</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (renamePopup) {
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Rename Keyword: @renamedKeyword.KeywordName</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="closeRenamePopup"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id=@renamedKeyword.KeywordName @bind="newKeywordName">
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="blue-button" @onclick="renameKeyword">Rename</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+
+    List<Keyword> keywords;
+    List<Keyword> selectedKeywords = new List<Keyword>();
+    private HubConnection? hubConnection;
+    bool deletePopup = false;
+    bool mergePopup = false;
+    bool renamePopup = false;
+    Keyword renamedKeyword;
+    string newKeywordName;
+    bool b = false;
+    string mergeInto;
+    string message;
+
+    public List<string> checkboxes { get; set; } = new List<string>();
+    void CheckboxClicked(string CheckID, object checkedValue) {
+        if ((bool)checkedValue) {
+            if (!checkboxes.Contains(CheckID)) {
+                checkboxes.Add(CheckID);
+            }
+        } else {
+            if (checkboxes.Contains(CheckID)) {
+                checkboxes.Remove(CheckID);
+            }
+        }
+    }
+
+    void addOrRemoveCheckbox(Keyword keyword) {
+        deletePopup = true;
+        selectedKeywords.Add(keyword);
+    }
+
+    void changeMergeInto(string str) {
+        mergeInto = str;
+    }
+
+    void mergeKeywords() {
+        Keyword mergeKeyword = keywords.Where(s => s.KeywordName == mergeInto).First();
+        List<Keyword> otherKeywords = new List<Keyword>();
+        foreach (var keywordName in checkboxes) {
+            Keyword k = keywords.Where(s => s.KeywordName == keywordName.ToString()).First();
+            if (k != mergeKeyword) {
+                otherKeywords.Add(k);
+            }
+        }
+        bool success = Service.mergeKeywords(mergeKeyword, otherKeywords);
+        if (success) {
+            closeMergePopup();
+            uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+        } else {
+            message = "Sorry, merge unsuccessful. Try merging into a different keyword, then renaming the result.";
+        }
+    }
+
+    void deleteKeywords() {
+        foreach (var keywordName in checkboxes) {
+            Keyword k = keywords.Where(s => s.KeywordName == keywordName.ToString()).First();
+            Service.deleteKeyword(k);
+            closeDeletePopup();
+            uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+        }
+    }
+
+    void renameKeyword() {
+        Service.renameKeyword(renamedKeyword, newKeywordName);
+        closeRenamePopup();
+        uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+    }
+
+    void showDeletePopup() {
+        deletePopup = true;
+    }
+
+    void closeDeletePopup() {
+        deletePopup = false;
+    }
+
+    void showMergePopup() {
+        message = "";
+        mergePopup = true;
+    }
+
+    void closeMergePopup() {
+        mergePopup = false;
+    }
+
+    void showRenamePopup(Keyword k) {
+        renamedKeyword = k;
+        newKeywordName = k.KeywordName;
+        renamePopup = true;
+    }
+
+    void closeRenamePopup() {
+        renamedKeyword = null;
+        renamePopup = false;
+    }
+
+    protected override async Task OnInitializedAsync() {
+        keywords = Service.getKeywords();
+    }
+}

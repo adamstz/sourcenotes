@@ -1,0 +1,116 @@
+﻿@page "/projectsettings"
+@using SourceNotes.Data
+@inherits OwningComponentBase<ProjectServices>
+@inject SourceNotesContext _context
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+@inject ProtectedSessionStorage ProtectedSessionStore;
+
+<PageTitle>SourceNotes</PageTitle>
+
+<head>
+    <style>
+        input[type=text] {
+            width: 100%;
+            padding: 12px;
+            box-sizing: border-box;
+            border: 2px solid #789ac7;
+            border-radius: 4px;
+            background-color: #f8f8f8;
+            resize: none;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            box-sizing: border-box;
+            border: 2px solid #789ac7;
+            border-radius: 4px;
+            background-color: #f8f8f8;
+            resize: none;
+        }
+    </style>
+</head>
+
+<!--HEADERS-->
+<form>
+    <h3>Project Settings</h3>
+    <br />
+
+    <div class="container">
+        <div>
+            <label for="p_name">Project Name</label><br>
+            <input type="text" id="p_name" name="p_name" @bind="_project.ProjectName"><br><br>
+        </div>
+        <div>
+            <label for="p_description">Project Description @*(Optional: This description appears below all notes if a user clicks on the Project Title.)*@</label><br>
+            <textarea id="p_description" name="p_description" style="width:100%; height:100px;" @bind="_project.ProjectDescription"></textarea>
+        </div>
+    </div>
+    <br />
+    <!-- All Extra Functionality for Page -->
+    @*    Invitation Code (case sensitive): <br><br>
+    <h3>Privacy</h3>
+    <label class="switch">
+    <input type="checkbox">
+    <span class="slider round"></span>
+    </label>
+    Researchers are able to see their peers' notes (Admins can always see everybody's notes)<br><br>
+    <label class="switch">
+    <input type="checkbox">
+    <span class="slider round"></span>
+    </label>
+    Comments on the notes are visible to everybody (Admins can always see everybody's comments)<br><br>
+
+    <h3>Rating Research</h3>
+    <label class="switch">
+    <input type="checkbox">
+    <span class="slider round"></span>
+    </label>
+    Star-rating system, where researchers can evaluate notes from 1-5 stars<br><br>
+    <label class="switch">
+    <input type="checkbox">
+    <span class="slider round"></span>
+    </label>
+    Students are able to view the star-ratings of their peers (Admins can always see everybody's ratings)<br><br>
+
+    <h3>Leaderboard</h3>
+    <label class="switch">
+    <input type="checkbox">
+    <span class="slider round"></span>
+    </label>
+    Leaderboard, which ranks researchers by their productivity<br><br>*@
+    <button style="display:block; margin: 0 auto;" class="blue-button" @onclick="UpdateProject">Update</button><br><br>
+</form>
+
+
+@code {
+    private Project _project;
+    int selectedProjectId;
+    [CascadingParameter] Task<AuthenticationState> authenticationStateTask { get; set; }
+    System.Security.Claims.ClaimsPrincipal user;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _project = _context.Project.FirstOrDefault(p => p.ProjectId == 1);
+        var authState = await authenticationStateTask;
+        user = authState.User;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var result = await ProtectedSessionStore.GetAsync<int>(user.Identity.Name);
+            selectedProjectId = result.Success ? result.Value : 0;
+            _project = _context.Project.FirstOrDefault(p => p.ProjectId == selectedProjectId);
+            StateHasChanged();
+        }
+    }
+
+    private void UpdateProject()
+    {
+        Service.updateProject(_project);
+    }
+
+}

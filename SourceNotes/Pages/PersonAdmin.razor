@@ -1,0 +1,198 @@
+﻿@page "/personadmin"
+@using SourceNotes.Data
+@inject AppState appState
+@inherits OwningComponentBase<ProjectServices>
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject NavigationManager uriHelper;
+
+<PageTitle>SourceNotes</PageTitle>
+
+<!--HEADERS-->
+<h3>Manage People</h3>
+<br />
+
+<div style="height:500px; overflow-y:scroll">
+    @foreach (var person in people) {
+        <div style="float:left; width:33.3%">
+            <input type="checkbox" name="personCheckbox" id=@person.PeopleName @onchange="eventArgs=> { CheckboxClicked(person.PeopleName, eventArgs.Value); }">
+            <label for=@person.PeopleName> @person.PeopleName </label>
+            <i id=@person.PeopleName class="fas fa-pen" style="color:orange; font-size:12px" @onclick="eventArgs=> { showRenamePopup(person); }"></i>
+        </div>
+    }
+</div>
+<br />
+<button class="blue-button" @onclick="showMergePopup">Merge</button>
+<button class="red-button" @onclick="showDeletePopup">Delete</button>
+
+@if (deletePopup) {
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete these people?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="closeDeletePopup"></button>
+                </div>
+                <div class="modal-body">
+                    @foreach (var checkbox in checkboxes) {
+                        @checkbox
+                        <br />
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="blue-button" @onclick="deletePeople">Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (mergePopup) {
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Select which person the others will merge into.</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="closeMergePopup"></button>
+                </div>
+                <div class="modal-body">
+                    @foreach (var checkbox in checkboxes) {
+                        <input type="radio" name="radio" id=@checkbox @onchange="() => changeMergeInto(checkbox)">
+                        <label>@checkbox</label>
+                        <br />
+                    }
+                    <div style="color:red">
+                        @message
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="blue-button" @onclick="mergePeople">Merge</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (renamePopup) {
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Rename Person: @renamedPerson.PeopleName</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="closeRenamePopup"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id=@renamedPerson.PeopleName @bind="newPersonName">
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="blue-button" @onclick="renamePerson">Rename</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    List<People> people;
+    List<People> selectedPeople = new List<People>();
+    private HubConnection? hubConnection;
+    bool deletePopup = false;
+    bool mergePopup = false;
+    bool renamePopup = false;
+    People renamedPerson;
+    string newPersonName;
+    string mergeInto;
+    string message;
+
+    public List<string> checkboxes { get; set; } = new List<string>();
+    void CheckboxClicked(string CheckID, object checkedValue) {
+        if ((bool)checkedValue) {
+            if (!checkboxes.Contains(CheckID)) {
+                checkboxes.Add(CheckID);
+            }
+        } else {
+            if (checkboxes.Contains(CheckID)) {
+                checkboxes.Remove(CheckID);
+            }
+        }
+    }
+
+    void addOrRemoveCheckbox(People person) {
+        deletePopup = true;
+        selectedPeople.Add(person);
+    }
+
+    void changeMergeInto(string str) {
+        mergeInto = str;
+    }
+
+    void mergePeople() {
+        People mergePerson = people.Where(s => s.PeopleName == mergeInto).First();
+        List<People> otherPeople = new List<People>();
+        foreach (var personName in checkboxes) {
+            People p = people.Where(s => s.PeopleName == personName.ToString()).First();
+            if (p != mergePerson) {
+                otherPeople.Add(p);
+            }
+        }
+        bool success = Service.mergePeople(mergePerson, otherPeople);
+        if (success) {
+            closeMergePopup();
+            uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+        } else {
+            message = "Sorry, merge unsuccessful. Try merging into a different person, then renaming the result.";
+        }
+    }
+
+    void deletePeople() {
+        foreach (var personName in checkboxes) {
+            People p = people.Where(s => s.PeopleName == personName.ToString()).First();
+            Service.deletePerson(p);
+            closeDeletePopup();
+            uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+        }
+    }
+
+    void renamePerson() {
+        Service.renamePerson(renamedPerson, newPersonName);
+        closeRenamePopup();
+        uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+    }
+
+    void showDeletePopup() {
+        deletePopup = true;
+    }
+
+    void closeDeletePopup() {
+        deletePopup = false;
+    }
+
+    void showMergePopup() {
+        message = "";
+        mergePopup = true;
+    }
+
+    void closeMergePopup() {
+        mergePopup = false;
+    }
+
+    void showRenamePopup(People p) {
+        renamedPerson = p;
+        newPersonName = p.PeopleName;
+        renamePopup = true;
+    }
+
+    void closeRenamePopup() {
+        renamedPerson = null;
+        renamePopup = false;
+    }
+
+    protected override async Task OnInitializedAsync() {
+        people = Service.getPeople();
+        //hubConnection = new HubConnectionBuilder()
+        //   .WithUrl(Navigation.ToAbsoluteUri("/chathub"))
+        //   .Build();
+        //await hubConnection.StartAsync();
+    }
+}

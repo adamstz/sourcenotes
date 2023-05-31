@@ -1,0 +1,111 @@
+﻿@using SourceNotes.Data
+@inject AppState appState
+@inject NavigationManager uriHelper;
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+@inject ProtectedSessionStorage ProtectedSessionStore;
+
+@inherits OwningComponentBase<ProjectServices>
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href=""></a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <select class="nav-link" style="width:100%" value=@selectedProjectId @onchange="projectChanged">
+                @foreach (var project in @projects) {
+                    <option value="@project.ProjectId"> @project.ProjectName </option>
+                }
+            </select>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="notes">
+                <span aria-hidden="true"></span> Notes
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="leaderboard">
+                <span aria-hidden="true"></span> Leaderboard
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="trends">
+                <span aria-hidden="true"></span> Trends
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="labbook">
+                <span aria-hidden="true"></span> Lab Book
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="methodology">
+                <span aria-hidden="true"></span> Methodology
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="reports">
+                <span aria-hidden="true"></span> Reports
+            </NavLink>
+        </div>
+        <!-- TODO: delete this -->
+        @*<div class="nav-item px-3">
+            <NavLink class="nav-link" href="index" Match="NavLinkMatch.All">
+                <span class="oi oi-home" aria-hidden="true"></span> Home (temp)
+            </NavLink>
+        </div>*@
+        @*<div class="nav-item px-3">
+            <NavLink class="nav-link" href="counter">
+                <span class="oi oi-plus" aria-hidden="true"></span> Counter (temp)
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="fetchdata">
+                <span class="oi oi-list-rich" aria-hidden="true"></span> Fetch data (temp)
+            </NavLink>
+        </div>*@
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+    private int selectedProjectId;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    List<Project> projects;
+    System.Security.Claims.ClaimsPrincipal user;
+    [CascadingParameter] Task<AuthenticationState> authenticationStateTask { get; set; }
+
+
+    protected override async Task OnInitializedAsync() {
+        var authState = await authenticationStateTask;
+        user = authState.User;
+        projects = Service.getProjects(user.Identity.Name);
+        selectedProjectId = -1;
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (firstRender) {
+            var result = await ProtectedSessionStore.GetAsync<int>(user.Identity.Name);
+            int firstProject = projects.Count > 0 ? projects.First().ProjectId : -1;
+            int selected = result.Success ? result.Value : firstProject;
+            selectedProjectId = selected;
+            StateHasChanged();
+            await ProtectedSessionStore.SetAsync(user.Identity.Name, int.Parse(selected.ToString()));
+        }
+    }
+
+    private void ToggleNavMenu() {
+        collapseNavMenu = !collapseNavMenu;
+    }
+    public async void projectChanged(ChangeEventArgs e) {
+        uriHelper.NavigateTo(uriHelper.Uri, forceLoad: true);
+        selectedProjectId = int.Parse(e.Value.ToString());
+        await ProtectedSessionStore.SetAsync(user.Identity.Name, selectedProjectId);
+    }
+}

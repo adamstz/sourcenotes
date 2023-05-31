@@ -1,0 +1,162 @@
+﻿@page "/useraccounts"
+﻿@using SourceNotes.Data
+@inject AppState appState
+@inject UsersToProjectsService _userstoprojectsservice
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+@inject ProtectedSessionStorage ProtectedSessionStore;
+
+<PageTitle>SourceNotes</PageTitle>
+
+<!--HEADERS-->
+<h3>User Accounts on Project</h3>
+<br />
+
+<span>
+    <button class="green-button" @onclick="ShowPopup">Add New User +</button>
+</span>
+
+@if (showModal) {
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="ClosePopup"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="userEmail">User Email:</label>
+                        <input type="email" class="form-control" id="userEmail" @bind="@newUserEmail" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="blue-button" @onclick="AddUser">Add User</button>
+                    <button type="button" class="grey-button" @onclick="ClosePopup">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showRemove)
+{
+    <div class="modal" tabindex="-1" role="dialog" style="display:block; background-color:rgb(0,0,0,0.4)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseRemove"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to remove user @selectedUserEmail?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="blue-button" @onclick="RemoveUser">Yes</button>
+                    <button type="button" class="grey-button" @onclick="CloseRemove">No</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<table class="trends-table">
+    <thead>
+        <tr>
+            <th>User Accounts</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (users == null)
+        {
+            <tr>
+                <td>...</td>
+                <td>...</td>
+            </tr>
+        } else {
+            @foreach (var account in users)
+            {
+                <tr>
+                    <td>@account</td>
+                    <td style="text-align:right;"><button class="red-button" @onclick="() => ShowRemove(account)">Remove</button></td>
+                </tr>
+            }
+        }
+    </tbody>
+
+</table>
+
+@code {
+    List<string> users;
+    bool showModal=false;
+    bool showRemove=false;
+    string newUserEmail;
+    string selectedUserEmail;
+    int selectedProjectId;
+    [CascadingParameter] Task<AuthenticationState> authenticationStateTask { get; set; }
+    System.Security.Claims.ClaimsPrincipal user;
+
+    protected override async Task OnInitializedAsync()
+    {
+        users = _userstoprojectsservice.GetUsers(selectedProjectId);
+        var authState = await authenticationStateTask;
+        user = authState.User;
+
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var result = await ProtectedSessionStore.GetAsync<int>(user.Identity.Name);
+            selectedProjectId = result.Success ? result.Value : 0;
+            users = _userstoprojectsservice.GetUsers(selectedProjectId);
+            StateHasChanged();
+        }
+    }
+
+    void ShowPopup()
+    {
+        showModal = true;
+    }
+
+    void ClosePopup()
+    {
+        showModal = false;
+    }
+
+    void ShowRemove(string userEmail)
+    {
+        selectedUserEmail = userEmail;
+        showRemove = true;
+    }
+
+    void CloseRemove()
+    {
+        showRemove = false;
+    }
+
+    private void AddUser()
+    {
+        // Call the userstoprojectsservice to add the new user to the project.
+        _userstoprojectsservice.AddUserToProject(newUserEmail, selectedProjectId);
+
+        // Update the users list.
+        users = _userstoprojectsservice.GetUsers(selectedProjectId);
+
+        // Reset the new user email and close the modal.
+        newUserEmail = "";
+        showModal = false;
+    }
+
+    private void RemoveUser()
+    {
+        _userstoprojectsservice.RemoveUserFromProject(selectedUserEmail, selectedProjectId);
+
+        // Refresh the user list
+        users = _userstoprojectsservice.GetUsers(selectedProjectId);
+
+        showRemove = false;
+    }
+
+}
